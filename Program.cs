@@ -33,9 +33,11 @@ namespace Sevenisko.SharpWood.Test
         #region Initialization entry
         static void Main(string[] args)
         {
+            Oakwood.InitNativeFunctions();
+
             _handler += new EventHandler(Oakwood.Handler);
 
-            Oakwood.SetConsoleCtrlHandler(_handler, true);
+            Oakwood.nativeFunctions.HandleSignals(_handler);
 
             OakwoodEvents.OnStart += OnGMStart;
             OakwoodEvents.OnStop += OnGMStop;
