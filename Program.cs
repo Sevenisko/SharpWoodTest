@@ -3,14 +3,17 @@ using Sevenisko.SharpWood;
 using System.IO;
 using System.Linq;
 using System.Timers;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using EventHandler = Sevenisko.SharpWood.Oakwood.EventHandler;
 using Timer = System.Timers.Timer;
 using System.Threading;
 
 namespace Sevenisko.SharpWood.Test
 {
+    public class OakPlayerData
+    {
+        public int TpaID = -1;
+    }
+
     class SWTestGamemode
     {
         public static void Loop(Action action)
@@ -33,12 +36,6 @@ namespace Sevenisko.SharpWood.Test
         #region Initialization entry
         static void Main(string[] args)
         {
-            Oakwood.InitNativeFunctions();
-
-            _handler += new EventHandler(Oakwood.Handler);
-
-            Oakwood.nativeFunctions.HandleSignals(_handler);
-
             OakwoodEvents.OnStart += OnGMStart;
             OakwoodEvents.OnStop += OnGMStop;
             OakwoodEvents.OnPlayerConnect += OnPlayerConnect;
@@ -46,9 +43,9 @@ namespace Sevenisko.SharpWood.Test
             OakwoodEvents.OnPlayerDeath += OnPlayerDeath;
             OakwoodEvents.OnPlayerChat += OnPlayerChat;
             OakwoodEvents.OnPlayerKeyDown += OnPlayerKey;
-            OakwoodEvents.OnConsoleBreak += OnConsoleBreak;
+            OakwoodEvents.OnLog += OnConsoleLog;
 
-            Thread oakwoodThread = new Thread(() => Oakwood.CreateClient("ipc://oakwood-inbound", "ipc://oakwood-outbound", true));
+            Thread oakwoodThread = new Thread(() => Oakwood.CreateClient("ipc://oakwood-inbound", "ipc://oakwood-outbound"));
 
             oakwoodThread.Start();
 
@@ -77,6 +74,7 @@ namespace Sevenisko.SharpWood.Test
 
             OakwoodCommandSystem.RegisterEvent("unknownCommand", PlUnknownCmd);
         }
+
         #endregion
 
         #region Events
@@ -92,12 +90,9 @@ namespace Sevenisko.SharpWood.Test
             Console.WriteLine("Gamemode has been stopped.");
         }
 
-        private static void OnConsoleBreak(CtrlType type)
+        private static void OnConsoleLog(DateTime time, string source, string message)
         {
-            Console.WriteLine("Exiting gamemode...");
-            Oakwood.KillClient();
-            Console.WriteLine("Have a good day and goodbye. :)");
-            Environment.Exit(0);
+            Console.WriteLine($"[{time.ToString("HH:mm:ss")} - {source}] {message}");
         }
 
         static void OnPlayerConnect(OakwoodPlayer player)
@@ -109,11 +104,13 @@ namespace Sevenisko.SharpWood.Test
                     OakHUD.Message(p, $"{player.Name} joined the game.", OakColor.White);
                 }
 
+                OakPlayerData data = new OakPlayerData();
+
+                player.PlayerData = data;
+
                 OakPlayer.SpawnTempWeapons(player);
 
                 OakPlayer.Spawn(player, new OakVec3(-2136.182f, -5.768807f, -521.3138f), 90.0f);
-
-                player.TpaID = -1;
 
                 OakHUD.Announce(player, "Welcome to SharpWood testing server!", 4.5f);
             }
@@ -481,7 +478,7 @@ namespace Sevenisko.SharpWood.Test
             {
                 if (plName == p.Name)
                 {
-                    p.TpaID = player.ID;
+                    ((OakPlayerData)p.PlayerData).TpaID = player.ID;
 
                     OakHUD.Message(player, $"Sending teleport request to {p.Name}...", 0xFFFFFF);
 
@@ -499,16 +496,16 @@ namespace Sevenisko.SharpWood.Test
 
         static bool TpacceptCommand(OakwoodPlayer player, object[] args)
         {
-            if (player.TpaID != -1)
+            if (((OakPlayerData)player.PlayerData).TpaID != -1)
             {
                 foreach (OakwoodPlayer p in OakPlayer.GetList())
                 {
-                    if (p.ID == player.TpaID)
+                    if (p.ID == ((OakPlayerData)player.PlayerData).TpaID)
                     {
                         OakPlayer.SetPosition(p, OakPlayer.GetPosition(player));
                         OakHUD.Message(p, "Your teleport request was accepted.", 0xFFFFFF);
-                        player.TpaID = -1;
-                        p.TpaID = -1;
+                        ((OakPlayerData)player.PlayerData).TpaID = -1;
+                        ((OakPlayerData)p.PlayerData).TpaID = -1;
                         return true;
                     }
                 }
