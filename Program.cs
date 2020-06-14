@@ -49,29 +49,6 @@ namespace Sevenisko.SharpWood.Test
 
             oakwoodThread.Start();
 
-            OakwoodCommandSystem.RegisterCommand("test", TestCommand);
-            OakwoodCommandSystem.RegisterCommand("players", ShowPlayersCommand);
-            OakwoodCommandSystem.RegisterCommand("skin", SetSkin);
-            OakwoodCommandSystem.RegisterCommand("spawn", SpawnCommand);
-            OakwoodCommandSystem.RegisterCommand("getpos", GetPos);
-            OakwoodCommandSystem.RegisterCommand("getdir", GetDir);
-            OakwoodCommandSystem.RegisterCommand("car", SpawnCar);
-            OakwoodCommandSystem.RegisterCommand("saveloc", SaveLoc);
-            OakwoodCommandSystem.RegisterCommand("loadloc", LoadLoc);
-            OakwoodCommandSystem.RegisterCommand("clearchat", ClearChatCommand);
-            OakwoodCommandSystem.RegisterCommand("tpa", TpaCommand);
-            OakwoodCommandSystem.RegisterCommand("tpaccept", TpacceptCommand);
-            OakwoodCommandSystem.RegisterCommand("pm", PmCommand);
-            OakwoodCommandSystem.RegisterCommand("delcar", DelCarCommand);
-            OakwoodCommandSystem.RegisterCommand("repair", RepairCommand);
-            OakwoodCommandSystem.RegisterCommand("heal", HealCommand);
-            OakwoodCommandSystem.RegisterCommand("warp", Warp);
-            OakwoodCommandSystem.RegisterCommand("createwarp", CreateWarp);
-            OakwoodCommandSystem.RegisterCommand("updatewarp", EditWarp);
-            OakwoodCommandSystem.RegisterCommand("deletewarp", DeleteWarp);
-            OakwoodCommandSystem.RegisterCommand("kill", Kill);
-            OakwoodCommandSystem.RegisterCommand("getcar", GetCurrentVehicle);
-
             OakwoodCommandSystem.RegisterEvent("unknownCommand", PlUnknownCmd);
         }
 
@@ -81,12 +58,12 @@ namespace Sevenisko.SharpWood.Test
         static void OnGMStart()
         {
             Console.WriteLine("Gamemode has successfully started.");
-            OakMisc.Log("Testing gamemode has been started.");
+            Oakwood.ConLog("Testing gamemode has been started.");
         }
 
         static void OnGMStop()
         {
-            OakMisc.Log("Gamemode has been stopped.");
+            Oakwood.ConLog("Gamemode has been stopped.");
             Console.WriteLine("Gamemode has been stopped.");
         }
 
@@ -99,9 +76,9 @@ namespace Sevenisko.SharpWood.Test
         {
             if (player.IsValid())
             {
-                foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+                foreach (OakwoodPlayer p in Oakwood.Players)
                 {
-                    OakHUD.Message(p, $"{player.Name} joined the game.", OakColor.White);
+                    p.HUD.Message($"{player.Name} joined the game.", OakColor.White);
                 }
 
                 OakPlayerData data = new OakPlayerData();
@@ -112,7 +89,7 @@ namespace Sevenisko.SharpWood.Test
 
                 player.Spawn(new OakVec3(-2136.182f, -5.768807f, -521.3138f), 90.0f);
 
-                OakHUD.Announce(player, "Welcome to SharpWood testing server!", 4.5f);
+                player.HUD.Announce("Welcome to SharpWood testing server!", 4.5f);
             }
         }
 
@@ -120,9 +97,9 @@ namespace Sevenisko.SharpWood.Test
         {
             if (player.IsValid())
             {
-                foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+                foreach (OakwoodPlayer p in Oakwood.Players)
                 {
-                    OakHUD.Message(p, $"{player.Name} left the game.", OakColor.White);
+                    p.HUD.Message($"{player.Name} left the game.", OakColor.White);
                 }
             }
         }
@@ -131,21 +108,28 @@ namespace Sevenisko.SharpWood.Test
         {
             if (player.IsValid())
             {
-                OakChat.SendAll($"[CHAT] {player.Name}: {message}");
-                OakMisc.Log($"[CHAT] {player.Name}: {message}");
+                Oakwood.SendChatMessage($"[CHAT] {player.Name}: {message}");
+                Oakwood.ConLog($"[CHAT] {player.Name}: {message}");
             }
         }
 
-        private static void OnPlayerDeath(OakwoodPlayer player)
+        private static void OnPlayerDeath(OakwoodPlayer player, OakwoodPlayer killer)
         {
             if (player.IsValid())
             {
-                foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+                foreach (OakwoodPlayer p in Oakwood.Players)
                 {
-                    OakHUD.Message(p, $"{player.Name} died.", OakColor.White);
+                    if(player == killer)
+                    {
+                        p.HUD.Message($"{player.Name} died.", OakColor.White);
+                    }
+                    else
+                    {
+                        p.HUD.Message($"{player.Name} was killed by {killer.Name}.", OakColor.White);
+                    }
                 }
 
-                OakHUD.Announce(player, "Wasted", 4.85f);
+                player.HUD.Announce("Wasted", 4.85f);
 
                 Timer spawnTimer = new Timer();
                 spawnTimer.Interval = 5000;
@@ -153,15 +137,15 @@ namespace Sevenisko.SharpWood.Test
                 spawnTimer.Elapsed += (object sender, ElapsedEventArgs e) =>
                 {
                     Timer waitTimer = new Timer();
-                    OakHUD.Fade(player, OakwoodFade.FadeIn, 2500, OakColor.Black);
+                    player.HUD.Fade(OakwoodFade.FadeIn, 2500, OakColor.Black);
                     waitTimer.Interval = 2500;
                     waitTimer.AutoReset = false;
                     waitTimer.Elapsed += (object snd, ElapsedEventArgs ea) =>
                     {
                         player.SpawnTempWeapons();
-                        player.SetHealth(200.0f);
+                        player.Health = 200.0f;
                         player.Spawn(new OakVec3(-759.3801f, 13.24883f, 761.6967f), 180.0f);
-                        OakHUD.Fade(player, OakwoodFade.FadeOut, 2500, OakColor.Black);
+                        player.HUD.Fade(OakwoodFade.FadeOut, 2500, OakColor.Black);
                     };
                     waitTimer.Start();
                 };
@@ -170,14 +154,12 @@ namespace Sevenisko.SharpWood.Test
             }
         }
 
-        private static bool PlUnknownCmd(object[] args)
+        private static void PlUnknownCmd(object[] args)
         {
             OakwoodPlayer player = (OakwoodPlayer)args[0];
             string cmd = args[1].ToString();
 
-            OakChat.Send(player, $"[CMD] Command '{cmd}' was not found.");
-
-            return true;
+            player.SendMessage($"[CMD] Command '{cmd}' was not found.");
         }
 
         private static void OnPlayerKey(OakwoodPlayer player, VirtualKey key)
@@ -188,36 +170,37 @@ namespace Sevenisko.SharpWood.Test
         #endregion
 
         #region Commands
-        static bool GetCurrentVehicle(OakwoodPlayer player, object[] args)
+        [Command("getcar", "Gets current car information")]
+        static void GetCurrentVehicle(OakwoodPlayer player, object[] args)
         {
-            OakwoodVehicle vehicle = OakVehPlayer.Inside(player);
+            OakwoodVehicle vehicle = player.Vehicle;
             if (vehicle != null)
             {
-                OakHUD.Message(player, $"Vehicle ID: {vehicle.ID}", OakColor.White);
-                OakHUD.Message(player, $"{vehicle.Name}", OakColor.White);
+                player.HUD.Message($"Vehicle ID: {vehicle.ID}", OakColor.White);
+                player.HUD.Message($"{vehicle.Name}", OakColor.White);
             }
             else
             {
-                OakHUD.Message(player, "You're not inside any car!", OakColor.White);
+                player.HUD.Message("You're not inside any car!", OakColor.White);
             }
-            return true;
         }
 
-        static bool Kill(OakwoodPlayer player, object[] args)
+        [Command("kill", "Kills you")]
+        static void Kill(OakwoodPlayer player, object[] args)
         {
-            foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+            foreach (OakwoodPlayer p in Oakwood.Players)
             {
-                OakHUD.Message(p, $"{player.Name} commited suicide.", OakColor.White);
+                p.HUD.Message($"{player.Name} commited suicide.", OakColor.White);
             }
-            OakHUD.Fade(player, OakwoodFade.FadeIn, 500, OakColor.Red);
+            player.HUD.Fade(OakwoodFade.FadeIn, 500, OakColor.Red);
             player.SpawnTempWeapons();
-            player.SetHealth(200.0f);
+            player.Health = 200.0f;
             player.Spawn(new OakVec3(-759.3801f, 13.24883f, 761.6967f), 180.0f);
-            OakHUD.Fade(player, OakwoodFade.FadeOut, 500, OakColor.Red);
-            return true;
+            player.HUD.Fade(OakwoodFade.FadeOut, 500, OakColor.Red);
         }
 
-        static bool Warp(OakwoodPlayer player, object[] args)
+        [Command("warp", "Warps you to the place")]
+        static void Warp(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
@@ -228,8 +211,8 @@ namespace Sevenisko.SharpWood.Test
                     List += $"{Path.GetFileNameWithoutExtension(f)}, ";
                 }
 
-                OakChat.Send(player, $"[WARPS ({Directory.GetFiles(Environment.CurrentDirectory + @"\Warps").Length})] {List}");
-                return true;
+                player.SendMessage($"[WARPS ({Directory.GetFiles(Environment.CurrentDirectory + @"\Warps").Length})] {List}");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -238,27 +221,26 @@ namespace Sevenisko.SharpWood.Test
 
             if (File.Exists(file))
             {
-                OakHUD.Message(player, $"Warping you to '{locName}'...", 0xFFFFFF);
+                player.HUD.Message($"Warping you to '{locName}'...", 0xFFFFFF);
                 string[] pos = File.ReadAllText(file).Split(';');
                 OakVec3 newPos = new OakVec3(float.Parse(pos[0]), float.Parse(pos[1]), float.Parse(pos[2]));
                 OakVec3 newDir = new OakVec3(float.Parse(pos[3]), float.Parse(pos[4]), float.Parse(pos[5]));
-                player.SetPosition(newPos);
-                player.SetDirection(newDir);
+                player.Position = newPos;
+                player.Direction = newDir;
             }
             else
             {
-                OakHUD.Message(player, $"Warp '{locName}' doesn't exist!", 0xFF0000);
+                player.HUD.Message($"Warp '{locName}' doesn't exist!", 0xFF0000);
             }
-
-            return true;
         }
 
-        static bool DeleteWarp(OakwoodPlayer player, object[] args)
+        [Command("delwarp", "Deletes a warp")]
+        static void DeleteWarp(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /deletewarp <locName>");
-                return true;
+                player.SendMessage("[USAGE] /deletewarp <locName>");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -268,22 +250,21 @@ namespace Sevenisko.SharpWood.Test
             if (File.Exists(file))
             {
                 File.Delete(file);
-                OakHUD.Message(player, $"Warp '{locName}' deleted.", OakColor.White);
+                player.HUD.Message($"Warp '{locName}' deleted.", OakColor.White);
             }
             else
             {
-                OakHUD.Message(player, $"Warp '{locName}' doesn't exist!", OakColor.Red);
+                player.HUD.Message($"Warp '{locName}' doesn't exist!", OakColor.Red);
             }
-
-            return true;
         }
 
-        static bool EditWarp(OakwoodPlayer player, object[] args)
+        [Command("updatewarp", "Updates a warp")]
+        static void EditWarp(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /updatewarp <locName>");
-                return true;
+                player.SendMessage("[USAGE] /updatewarp <locName>");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -297,34 +278,33 @@ namespace Sevenisko.SharpWood.Test
 
             if (File.Exists(file))
             {
-                OakVec3 playerPos = player.GetPosition();
-                OakVec3 playerDir = player.GetDirection();
+                OakVec3 playerPos = player.Position;
+                OakVec3 playerDir = player.Direction;
 
                 if (playerPos.x != 0 && playerPos.y != 0 && playerPos.z != 0 && playerDir.x != 0 && playerDir.z != 0)
                 {
                     File.WriteAllText(file, $"{playerPos.x};{playerPos.y};{playerPos.z};{playerDir.x};{playerDir.y};{playerDir.z}");
 
-                    OakHUD.Message(player, $"Warp '{locName}' updated!", 0xFFFFFF);
+                    player.HUD.Message($"Warp '{locName}' updated!", 0xFFFFFF);
                 }
                 else
                 {
-                    OakHUD.Message(player, "Cannot create warp!", 0xFF0000);
+                    player.HUD.Message("Cannot create warp!", 0xFF0000);
                 }
             }
             else
             {
-                OakHUD.Message(player, $"Warp '{locName}' doesn't exist!", OakColor.Red);
+                player.HUD.Message($"Warp '{locName}' doesn't exist!", OakColor.Red);
             }
-
-            return true;
         }
 
-        static bool CreateWarp(OakwoodPlayer player, object[] args)
+        [Command("createwarp", "Creates a warp")]
+        static void CreateWarp(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /createwarp <locName>");
-                return true;
+                player.SendMessage("[USAGE] /createwarp <locName>");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -338,85 +318,83 @@ namespace Sevenisko.SharpWood.Test
 
             if (!File.Exists(file))
             {
-                OakVec3 playerPos = player.GetPosition();
-                OakVec3 playerDir = player.GetDirection();
+                OakVec3 playerPos = player.Position;
+                OakVec3 playerDir = player.Direction;
 
                 if (playerPos.x != 0 && playerPos.y != 0 && playerPos.z != 0 && playerDir.x != 0 && playerDir.z != 0)
                 {
                     File.WriteAllText(file, $"{playerPos.x};{playerPos.y};{playerPos.z};{playerDir.x};{playerDir.y};{playerDir.z}");
 
-                    OakHUD.Message(player, $"Warp '{locName}' created!", 0xFFFFFF);
+                    player.HUD.Message($"Warp '{locName}' created!", 0xFFFFFF);
                 }
                 else
                 {
-                    OakHUD.Message(player, "Cannot create warp!", 0xFF0000);
+                    player.HUD.Message("Cannot create warp!", 0xFF0000);
                 }
             }
             else
             {
-                OakHUD.Message(player, $"Warp '{locName}' already exists!", OakColor.Red);
+                player.HUD.Message($"Warp '{locName}' already exists!", OakColor.Red);
             }
-
-            return true;
         }
 
-        static bool ClearChatCommand(OakwoodPlayer player, object[] args)
+        [Command("clearchat", "Clears a chat")]
+        static void ClearChatCommand(OakwoodPlayer player, object[] args)
         {
             for (int x = 0; x < 24; x++)
             {
-                OakChat.Send(player, "\n");
+                player.SendMessage("\n");
             }
 
-            OakHUD.Message(player, "Chat cleared.", 0xFFFFFF);
-
-            return true;
+            player.HUD.Message("Chat cleared.", 0xFFFFFF);
         }
 
-        static bool DelCarCommand(OakwoodPlayer player, object[] args)
+        [Command("delcar", "Deletes a car")]
+        static void DelCarCommand(OakwoodPlayer player, object[] args)
         {
-            OakwoodVehicle car = OakVehPlayer.Inside(player);
+            OakwoodVehicle car = player.Vehicle;
 
             if (car != null)
             {
-                OakVehPlayer.Remove(car, player);
+                player.VehicleManipulation.Remove(car);
                 car.Despawn();
-                OakHUD.Message(player, "Vehicle successfully removed.", 0xFFFFFF);
+                player.HUD.Message("Vehicle successfully removed.", 0xFFFFFF);
             }
             else
             {
-                OakHUD.Message(player, "You're not inside any vehicle!", 0xFF0000);
+                player.HUD.Message("You're not inside any vehicle!", 0xFF0000);
             }
-            return true;
         }
 
-        static bool HealCommand(OakwoodPlayer player, object[] args)
+        [Command("heal", "Heals you")]
+        static void HealCommand(OakwoodPlayer player, object[] args)
         {
-            player.SetHealth(200.0f);
-            return true;
+            player.Health = 200.0f;
         }
 
-        static bool RepairCommand(OakwoodPlayer player, object[] args)
+        [Command("repair", "Repairs your car")]
+        static void RepairCommand(OakwoodPlayer player, object[] args)
         {
-            OakwoodVehicle car = OakVehPlayer.Inside(player);
+            OakwoodVehicle car = player.Vehicle;
 
             if (car != null)
             {
                 car.Repair();
-                OakHUD.Message(player, "Vehicle successfully repaired.", 0xFFFFFF);
+                player.HUD.Message("Vehicle successfully repaired.", 0xFFFFFF);
             }
             else
             {
-                OakHUD.Message(player, "You're not inside any vehicle!", 0xFF0000);
+                player.HUD.Message("You're not inside any vehicle!", 0xFF0000);
             }
-            return true;
         }
 
-        static bool PmCommand(OakwoodPlayer player, object[] args)
+        [Command("pm", "Sends a private message")]
+        static void PmCommand(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /pm <playerName> <message>");
-                return true;
+                player.SendMessage("[USAGE] /pm <playerName> <message>");
+                return;
             }
 
             string plName = args[0].ToString();
@@ -439,146 +417,142 @@ namespace Sevenisko.SharpWood.Test
 
             if (plName == player.Name)
             {
-                OakChat.Send(player, "[WARN] You can't just send PM to yourself!");
-                return true;
+                player.SendMessage("[WARN] You can't just send PM to yourself!");
+                return;
             }
 
-            foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+            foreach (OakwoodPlayer p in Oakwood.Players)
             {
                 if (plName == p.Name)
                 {
-                    OakChat.Send(player, $"[Me -> {p.Name}] {message}");
-                    OakChat.Send(p, $"[{player.Name} -> Me] {message}");
-                    return true;
+                    player.SendMessage($"[Me -> {p.Name}] {message}");
+                    p.SendMessage($"[{player.Name} -> Me] {message}");
+                    return;
                 }
             }
 
-            OakChat.Send(player, $"[WARN] Player '{plName}' was not found.");
-
-            return true;
+            player.SendMessage($"[WARN] Player '{plName}' was not found.");
         }
 
-        static bool TpaCommand(OakwoodPlayer player, object[] args)
+        [Command("tpa", "Sends a teleport request")]
+        static void TpaCommand(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /tpa <playerName>");
-                return true;
+                player.SendMessage("[USAGE] /tpa <playerName>");
+                return;
             }
 
             string plName = args[0].ToString();
 
             if (plName == player.Name)
             {
-                OakChat.Send(player, "[WARN] You can't just teleport to yourself!");
-                return true;
+                player.SendMessage("[WARN] You can't just teleport to yourself!");
+                return;
             }
 
-            foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+            foreach (OakwoodPlayer p in Oakwood.Players)
             {
                 if (plName == p.Name)
                 {
                     ((OakPlayerData)p.PlayerData).TpaID = player.ID;
 
-                    OakHUD.Message(player, $"Sending teleport request to {p.Name}...", 0xFFFFFF);
+                    player.HUD.Message($"Sending teleport request to {p.Name}...", 0xFFFFFF);
 
-                    OakChat.Send(p, $"[TPA] Player {player.Name} wants to teleport to you:");
-                    OakChat.Send(p, $"  > Write '/tpaccept' to accept the request.");
-                    OakChat.Send(p, $"  > Or just ignore it, if you want to reject the request.");
+                    p.SendMessage($"[TPA] Player {player.Name} wants to teleport to you:");
+                    p.SendMessage($"  > Write '/tpaccept' to accept the request.");
+                    p.SendMessage($"  > Or just ignore it, if you want to reject the request.");
 
-                    return true;
+                    return;
                 }
             }
 
-            OakChat.Send(player, $"[WARN] Player '{plName}' was not found.");
-            return true;
+            player.SendMessage($"[WARN] Player '{plName}' was not found.");
         }
 
-        static bool TpacceptCommand(OakwoodPlayer player, object[] args)
+        [Command("tpaccept", "Accepts a teleport request")]
+        static void TpacceptCommand(OakwoodPlayer player, object[] args)
         {
             if (((OakPlayerData)player.PlayerData).TpaID != -1)
             {
-                foreach (OakwoodPlayer p in Oakwood.GetPlayerList())
+                foreach (OakwoodPlayer p in Oakwood.Players)
                 {
                     if (p.ID == ((OakPlayerData)player.PlayerData).TpaID)
                     {
-                        p.SetPosition(player.GetPosition());
-                        OakHUD.Message(p, "Your teleport request was accepted.", 0xFFFFFF);
+                        p.Position = player.Position;
+                        p.HUD.Message("Your teleport request was accepted.", 0xFFFFFF);
                         ((OakPlayerData)player.PlayerData).TpaID = -1;
                         ((OakPlayerData)p.PlayerData).TpaID = -1;
-                        return true;
+                        return;
                     }
                 }
             }
 
-            OakChat.Send(player, "[TPA] There's no teleport request.");
-
-            return true;
+            player.SendMessage("[TPA] There's no teleport request.");
         }
 
-        static bool ShowPlayersCommand(OakwoodPlayer player, object[] args)
+        [Command("players", "Shows player list")]
+        static void ShowPlayersCommand(OakwoodPlayer player, object[] args)
         {
-            OakChat.Send(player, "[INFO] Player list:");
-            foreach (OakwoodPlayer pl in Oakwood.GetPlayerList())
+            player.SendMessage("[INFO] Player list:");
+            foreach (OakwoodPlayer pl in Oakwood.Players)
             {
-                OakChat.Send(player, $" > {pl.Name}#{pl.ID}");
+                player.SendMessage($" > {pl.Name}#{pl.ID}");
             }
-
-            return true;
         }
 
-        static bool SetSkin(OakwoodPlayer player, object[] args)
+        [Command("skin", "Sets your skin")]
+        static void SetSkin(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /skin <skinID>");
-                return true;
+                player.SendMessage("[USAGE] /skin <skinID>");
+                return;
             }
 
             int skinID = int.Parse(args[0].ToString());
 
-            OakwoodVehicle car = OakVehPlayer.Inside(player);
+            OakwoodVehicle car = player.Vehicle;
 
             if (car == null)
             {
                 if (skinID >= 0 && skinID < OakwoodResources.PlayerModels.Length - 1)
                 {
                     player.SetModel(OakwoodResources.PlayerModels[skinID].Modelname);
-                    OakHUD.Message(player, "Skin successfully changed!", 0xFFFFFF);
+                    player.HUD.Message("Skin successfully changed!", 0xFFFFFF);
                 }
                 else
                 {
-                    OakHUD.Message(player, "Skin ID you provided is wrong!", 0xFCB603);
+                    player.HUD.Message("Skin ID you provided is wrong!", 0xFCB603);
                 }
             }
             else
             {
-                OakHUD.Message(player, "You can't be inside the vehicle!", 0xFF0000);
+                player.HUD.Message("You can't be inside the vehicle!", 0xFF0000);
             }
-
-            return true;
         }
 
-        static bool GetPos(OakwoodPlayer player, object[] args)
+        [Command("getpos", "Gets your actual position")]
+        static void GetPos(OakwoodPlayer player, object[] args)
         {
-            OakVec3 pos = player.GetPosition();
-            OakHUD.Message(player, $"Actual position: [{pos.x}; {pos.y}; {pos.z}]", 0xFFFFFF);
-            return true;
+            OakVec3 pos = player.Position;
+            player.HUD.Message( $"Actual position: [{pos.x}; {pos.y}; {pos.z}]", 0xFFFFFF);
         }
 
-        static bool GetDir(OakwoodPlayer player, object[] args)
+        [Command("getdir", "Gets your actual direction")]
+        static void GetDir(OakwoodPlayer player, object[] args)
         {
-            OakVec3 dir = player.GetDirection();
-            OakHUD.Message(player, $"Actual direction: [{dir.x * 360.0f}; {dir.y * 360.0f}; {dir.z * 360.0f}]", 0xFFFFFF);
-            return true;
+            OakVec3 dir = player.Direction;
+            player.HUD.Message($"Actual direction: [{dir.x * 360.0f}; {dir.y * 360.0f}; {dir.z * 360.0f}]", 0xFFFFFF);
         }
 
-        static bool LoadLoc(OakwoodPlayer player, object[] args)
+        [Command("loadloc", "Teleports you to loaded position")]
+        static void LoadLoc(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /loadloc <locName>");
-                return true;
+                player.SendMessage("[USAGE] /loadloc <locName>");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -590,24 +564,23 @@ namespace Sevenisko.SharpWood.Test
                 string[] pos = File.ReadAllText(file).Split(';');
                 OakVec3 newPos = new OakVec3(float.Parse(pos[0]), float.Parse(pos[1]), float.Parse(pos[2]));
                 OakVec3 newDir = new OakVec3(float.Parse(pos[3]), float.Parse(pos[4]), float.Parse(pos[5]));
-                player.SetPosition(newPos);
-                player.SetDirection(newDir);
-                OakHUD.Message(player, $"Teleported to '{locName}'!", 0xFFFFFF);
+                player.Position = newPos;
+                player.Direction = newDir;
+                player.HUD.Message($"Teleported to '{locName}'!", 0xFFFFFF);
             }
             else
             {
-                OakHUD.Message(player, $"Location '{locName}' doesn't exist!", 0xFF0000);
+                player.HUD.Message($"Location '{locName}' doesn't exist!", 0xFF0000);
             }
-
-            return true;
         }
 
-        static bool SaveLoc(OakwoodPlayer player, object[] args)
+        [Command("saveloc", "Saves your position into file")]
+        static void SaveLoc(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /saveloc <locName>");
-                return true;
+                player.SendMessage("[USAGE] /saveloc <locName>");
+                return;
             }
 
             string locName = args[0].ToString();
@@ -619,78 +592,76 @@ namespace Sevenisko.SharpWood.Test
                 Directory.CreateDirectory(Path.GetDirectoryName(file));
             }
 
-            OakVec3 playerPos = player.GetPosition();
-            OakVec3 playerDir = player.GetDirection();
+            OakVec3 playerPos = player.Position;
+            OakVec3 playerDir = player.Direction;
 
             if (playerPos.x != 0 && playerPos.y != 0 && playerPos.z != 0 && playerDir.x != 0 && playerDir.z != 0)
             {
                 File.WriteAllText(file, $"{playerPos.x};{playerPos.y};{playerPos.z};{playerDir.x};{playerDir.y};{playerDir.z}");
 
-                OakHUD.Message(player, $"Location '{locName}' saved!", 0xFFFFFF);
+                player.HUD.Message($"Location '{locName}' saved!", 0xFFFFFF);
             }
             else
             {
-                OakHUD.Message(player, "Cannot save location!", 0xFF0000);
+                player.HUD.Message("Cannot save location!", 0xFF0000);
             }
-
-            return true;
         }
 
-        static bool SpawnCar(OakwoodPlayer player, object[] args)
+        [Command("car", "Spawns a car")]
+        static void SpawnCar(OakwoodPlayer player, object[] args)
         {
             if (args.Length == 0)
             {
-                OakChat.Send(player, "[USAGE] /car <carID>");
-                return true;
+                player.SendMessage("[USAGE] /car <carID>");
+                return;
             }
 
             int carID = int.Parse(args[0].ToString());
 
             if (carID >= 0 && carID < OakwoodResources.VehicleModels.Length - 1)
             {
-                OakVec3 plPos = player.GetPosition();
+                OakVec3 plPos = player.Position;
 
-                OakVec3 plDir = player.GetDirection();
+                OakVec3 plDir = player.Direction;
 
                 OakwoodVehicle sCar = OakwoodVehicle.Spawn(OakwoodResources.VehicleModels[carID], plPos, plDir.x / 360.0f);
 
                 if (sCar != null)
                 {
-                    OakVehPlayer.Put(sCar, player, VehicleSeat.FrontLeft);
+                    player.VehicleManipulation.Put(sCar, VehicleSeat.FrontLeft);
 
-                    OakHUD.Message(player, "Car successfully spawned!", 0xFFFFFF);
-                    return true;
+                    player.HUD.Message("Car successfully spawned!", 0xFFFFFF);
+                    return;
                 }
                 else
                 {
-                    OakHUD.Message(player, "Cannot spawn car!", 0xFF0000);
-                    return true;
+                    player.HUD.Message("Cannot spawn car!", 0xFF0000);
+                    return;
                 }
             }
             else
             {
-                OakHUD.Message(player, "Car ID you provided is wrong!", 0xFCB603);
-                return true;
+                player.HUD.Message("Car ID you provided is wrong!", 0xFCB603);
+                return;
             }
         }
 
-        static bool TestCommand(OakwoodPlayer player, object[] args)
+        [Command("test", "Testing command")]
+        static void TestCommand(OakwoodPlayer player, object[] args)
         {
-            OakChat.Send(player, $"SharpWood testing command.");
-            return true;
+            player.SendMessage($"SharpWood testing command.");
         }
 
-        static bool SpawnCommand(OakwoodPlayer player, object[] args)
+        [Command("spawn", "Respawns you")]
+        static void SpawnCommand(OakwoodPlayer player, object[] args)
         {
             player.SpawnTempWeapons();
 
-            player.SetHealth(200.0f);
+            player.Health = 200.0f;
             player.Spawn(new OakVec3(-1986.852539f, -5.089742f, 25.776871f), 180.0f);
 
-            OakHUD.Fade(player, OakwoodFade.FadeIn, 500, 0xFFFFFF);
-            OakHUD.Fade(player, OakwoodFade.FadeOut, 500, 0xFFFFFF);
-
-            return true;
+            player.HUD.Fade(OakwoodFade.FadeIn, 500, 0xFFFFFF);
+            player.HUD.Fade(OakwoodFade.FadeOut, 500, 0xFFFFFF);
         }
 
         #endregion
